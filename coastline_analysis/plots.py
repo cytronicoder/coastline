@@ -41,19 +41,19 @@ def report_plots(
     sensitivity: pd.DataFrame,
     output_dir: Path | None = None,
 ) -> Dict[str, Path]:
-    """Create the report figures described in the workflow.
+    """Create report figures.
 
     Args:
-        geometry: The coastline geometry.
-        aggregated: Aggregated box count data.
-        fit_stats: Fit statistics from linear regression.
-        window_indices: Start and end indices of the linear window.
-        residuals: Residuals from the fit.
-        sensitivity: Sensitivity analysis results.
-        output_dir: Directory to save figures, defaults to cwd.
+        geometry: Coastline geometry.
+        aggregated: Aggregated counts.
+        fit_stats: Fit stats.
+        window_indices: (start, end) indices.
+        residuals: Fit residuals.
+        sensitivity: Sensitivity results.
+        output_dir: Save dir, default cwd.
 
     Returns:
-        Dictionary mapping figure names to saved file paths.
+        Dict of figure names to paths.
     """
 
     output_path = _ensure_output_dir(output_dir)
@@ -145,12 +145,12 @@ def report_plots(
 
 
 def plot_geometry(geometry: GeometryLike, title: str = "Geometry", save_path: Path | None = None):
-    """Plot a geometry for visualization.
+    """Plot geometry.
 
     Args:
-        geometry: The geometry to plot.
-        title: Title for the plot.
-        save_path: Optional path to save the figure.
+        geometry: Geometry to plot.
+        title: Plot title.
+        save_path: Optional save path.
     """
     fig, ax = plt.subplots(figsize=(6, 6))
     geom = unary_union(geometry) if isinstance(geometry, (list, tuple)) else geometry
@@ -173,12 +173,12 @@ def plot_geometry(geometry: GeometryLike, title: str = "Geometry", save_path: Pa
 
 
 def plot_loglog(aggregated: pd.DataFrame, title: str = "Log-Log Plot", save_path: Path | None = None):
-    """Plot the log-log relationship for box counting.
+    """Plot log-log: log(1/ε) vs log N(ε).
 
     Args:
-        aggregated: Aggregated box count data.
-        title: Title for the plot.
-        save_path: Optional path to save the figure.
+        aggregated: Aggregated data.
+        title: Plot title.
+        save_path: Optional save path.
     """
     fig, ax = plt.subplots(figsize=(6, 6))
     ax.scatter(
