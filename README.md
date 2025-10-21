@@ -1,9 +1,7 @@
-### bytheseashore
-
-> she sells seashells by the seashore,
->
-> while waves erase the dreams she wore.
->
+> _she sells seashells by the seashore,_
+> 
+> _while waves erase the dreams she wore._
+> 
 > -unknown
 
 This package estimates the fractal dimension $D$ of coastline geometries using vector-based box-counting, following Mandelbrot's formulation.
