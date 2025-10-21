@@ -35,6 +35,29 @@ results = run_workflow(
 print(results["table1"])  # D, R², CI
 ```
 
+If you want to contrast different shoreline segments (for example, Singapore's
+reclaimed East Coast versus mangrove-lined shores in the north), load the
+regions as Shapely geometries and pass them via the ``subregions`` keyword:
+
+```python
+from shapely.geometry import box
+
+subregions = {
+    "east_coast": box(40000, 25000, 80000, 45000),
+    "north_shores": box(10000, 60000, 50000, 90000),
+}
+
+results = run_workflow(
+    Path("coastline.geojson"),
+    eps_list=[5000, 2500, 1250, 625, 312.5],
+    offsets=[(0,0), (0.25,0.25)],
+    rotations=[0, 15, 30, 45],
+    subregions=subregions,
+)
+
+print(results["subregions"]["east_coast"]["table1"])
+```
+
 The package generates several outputs. It will produce a big table summarizing $D$, $R^2$, confidence intervals, and other diagnostics, along with figures for visual assessment.
 
 You can test with known geometries:

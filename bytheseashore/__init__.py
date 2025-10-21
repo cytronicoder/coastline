@@ -1,6 +1,6 @@
 """Utilities for fractal analysis of coastline geometries."""
 
-from .io import load_coastline
+from .io import clip_coastline, load_coastline
 from .raster import rasterize_to_binary
 from .grid import GridSpec, make_grids, count_boxes_vector
 from .boxcount import (
@@ -23,6 +23,7 @@ from .workflow import run_workflow
 
 __all__ = [
     "load_coastline",
+    "clip_coastline",
     "rasterize_to_binary",
     "GridSpec",
     "make_grids",
