@@ -20,16 +20,43 @@ from .boxcount import (
 GeometryLike = LineString | MultiLineString
 
 
+__all__ = [
+    "generate_straight_line",
+    "generate_noise_curve",
+    "run_sanity_checks",
+    "simplification_study",
+]
+
+
 def generate_straight_line(length: float = 1000.0, segments: int = 2) -> LineString:
-    """Create a straight line geometry for sanity checks."""
+    """Create a straight line geometry for sanity checks.
+
+    Args:
+        length: Total length of the line.
+        segments: Number of segments (resolution).
+
+    Returns:
+        A straight LineString geometry.
+    """
 
     xs = np.linspace(0, length, segments + 1)
     ys = np.zeros_like(xs)
     return LineString(np.column_stack([xs, ys]))
 
 
-def generate_noise_curve(length: float = 1000.0, segments: int = 1024, noise: float = 100.0) -> LineString:
-    """Generate a fractal-like noisy coastline surrogate."""
+def generate_noise_curve(
+    length: float = 1000.0, segments: int = 1024, noise: float = 100.0
+) -> LineString:
+    """Generate a fractal-like noisy coastline surrogate.
+
+    Args:
+        length: Total length of the curve.
+        segments: Number of segments for discretization.
+        noise: Amplitude of the noise.
+
+    Returns:
+        A noisy LineString geometry.
+    """
 
     xs = np.linspace(0, length, segments)
     rng = np.random.default_rng(1234)
@@ -44,7 +71,17 @@ def run_sanity_checks(
     offsets: Iterable[tuple[float, float]],
     rotations: Iterable[float],
 ) -> pd.DataFrame:
-    """Run the primary workflow on a geometry and return summary stats."""
+    """Run the primary workflow on a geometry and return summary stats.
+
+    Args:
+        geometry: The geometry to analyze.
+        eps_list: Sequence of scales.
+        offsets: Iterable of offset fractions.
+        rotations: Iterable of rotation angles.
+
+    Returns:
+        Summary DataFrame with fractal dimension estimates.
+    """
 
     df = boxcount_series(geometry, eps_list, offsets, rotations)
     aggregated = aggregate_counts(df)
@@ -66,9 +103,18 @@ def simplification_study(
     offsets: Iterable[tuple[float, float]],
     rotations: Iterable[float],
 ) -> pd.DataFrame:
-    """Assess how Douglas–Peucker simplification affects fractal estimates."""
+    """Assess how Douglas–Peucker simplification affects fractal estimates.
 
-    from shapely.geometry import MultiLineString as MLS
+    Args:
+        geometry: The original geometry.
+        tolerances: Sequence of simplification tolerances.
+        eps_list: Sequence of scales.
+        offsets: Iterable of offset fractions.
+        rotations: Iterable of rotation angles.
+
+    Returns:
+        DataFrame with fractal dimensions for each tolerance.
+    """
 
     rows = []
     for tol in tolerances:
@@ -78,7 +124,11 @@ def simplification_study(
         elif isinstance(simplified, MultiLineString):
             geom_for_analysis = simplified
         else:
-            geom_for_analysis = MLS([simplified.boundary]) if hasattr(simplified, "boundary") else geometry
+            geom_for_analysis = (
+                MultiLineString([simplified.boundary])
+                if hasattr(simplified, "boundary")
+                else geometry
+            )
         df = boxcount_series(geom_for_analysis, eps_list, offsets, rotations)
         aggregated = aggregate_counts(df)
         window = choose_linear_window(aggregated)
@@ -94,11 +144,3 @@ def simplification_study(
             }
         )
     return pd.DataFrame(rows)
-
-
-__all__ = [
-    "generate_straight_line",
-    "generate_noise_curve",
-    "run_sanity_checks",
-    "simplification_study",
-]

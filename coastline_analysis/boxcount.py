@@ -16,8 +16,30 @@ from .grid import count_boxes_vector, make_grids
 GeometryLike = LineString | MultiLineString
 
 
+__all__ = [
+    "grid_count_vector",
+    "boxcount_series",
+    "aggregate_counts",
+    "choose_linear_window",
+    "fit_and_ci",
+    "sensitivity_analysis",
+    "summarize_sensitivity",
+]
+
+
 @dataclass
 class LinearWindow:
+    """Represents a linear window in the log-log box count data.
+
+    Attributes:
+        start: Index of the first scale in the window.
+        stop: Index of the last scale in the window.
+        r2: R2 statistic for the linear fit.
+        slope: Slope of the linear fit.
+        intercept: Intercept of the linear fit.
+        residuals: Residuals from the linear fit.
+    """
+
     start: int
     stop: int
     r2: float
@@ -32,11 +54,23 @@ def grid_count_vector(
     offsets: Iterable[Tuple[float, float]],
     rotations: Iterable[float],
 ) -> List[Dict[str, object]]:
-    """Count intersected boxes for a geometry at a single scale."""
+    """Count intersected boxes for a geometry at a single scale.
+
+    Args:
+        geometry: The input geometry to analyze.
+        eps: The scale (box size) for counting.
+        offsets: Iterable of (x, y) offset fractions for grid positioning.
+        rotations: Iterable of rotation angles in degrees.
+
+    Returns:
+        A list of dictionaries with box count records for each grid realization.
+    """
 
     records: List[Dict[str, object]] = []
     for rotation in rotations:
-        rotated = affinity.rotate(geometry, -rotation, origin="center", use_radians=False)
+        rotated = affinity.rotate(
+            geometry, -rotation, origin="center", use_radians=False
+        )
         grids = make_grids(rotated.bounds, eps, offsets, [rotation])
         for grid in grids:
             count = count_boxes_vector(rotated, grid)
@@ -59,7 +93,17 @@ def boxcount_series(
     offsets: Iterable[Tuple[float, float]],
     rotations: Iterable[float],
 ) -> pd.DataFrame:
-    """Compute box counts for a set of scales."""
+    """Compute box counts for a set of scales.
+
+    Args:
+        geometry: The input geometry to analyze.
+        eps_list: Sequence of scales (box sizes) to compute counts for.
+        offsets: Iterable of (x, y) offset fractions for grid positioning.
+        rotations: Iterable of rotation angles in degrees.
+
+    Returns:
+        A DataFrame with box counts, including log-transformed columns.
+    """
 
     records: List[Dict[str, object]] = []
     for eps in eps_list:
@@ -71,7 +115,14 @@ def boxcount_series(
 
 
 def aggregate_counts(df: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate box counts across grid realisations for each scale."""
+    """Aggregate box counts across grid realisations for each scale.
+
+    Args:
+        df: DataFrame with individual box count records.
+
+    Returns:
+        Aggregated DataFrame with mean and std counts per scale.
+    """
 
     grouped = (
         df.groupby("eps")
@@ -90,9 +141,27 @@ def aggregate_counts(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def choose_linear_window(df: pd.DataFrame, min_levels: int = 4) -> LinearWindow:
-    """Select the most linear contiguous region in the log-log curve."""
+    """Select the most linear contiguous region in the log-log curve.
 
-    best = LinearWindow(start=0, stop=min_levels, r2=-np.inf, slope=np.nan, intercept=np.nan, residuals=np.array([]))
+    Args:
+        df: Aggregated DataFrame with log-transformed counts.
+        min_levels: Minimum number of scales for a window.
+
+    Returns:
+        The best LinearWindow with highest R2.
+
+    Raises:
+        ValueError: If not enough scales to form a linear window.
+    """
+
+    best = LinearWindow(
+        start=0,
+        stop=min_levels,
+        r2=-np.inf,
+        slope=np.nan,
+        intercept=np.nan,
+        residuals=np.array([]),
+    )
     x = df["log_inv_eps"].to_numpy()
     y = df["log_mean_N"].to_numpy()
     n = len(df)
@@ -119,7 +188,14 @@ def choose_linear_window(df: pd.DataFrame, min_levels: int = 4) -> LinearWindow:
 
 
 def fit_and_ci(df_band: pd.DataFrame) -> Dict[str, float]:
-    """Fit the log-log relationship and compute statistics."""
+    """Fit the log-log relationship and compute statistics.
+
+    Args:
+        df_band: DataFrame subset for the linear window.
+
+    Returns:
+        Dictionary with fit parameters, R2, confidence intervals, and residuals.
+    """
 
     x = df_band["log_inv_eps"].to_numpy()
     y = df_band["log_mean_N"].to_numpy()
@@ -151,9 +227,23 @@ def sensitivity_analysis(
     df: pd.DataFrame,
     window: LinearWindow,
 ) -> pd.DataFrame:
-    """Compute fractal dimension per grid realisation within the chosen window."""
+    """Compute fractal dimension per grid realisation within the chosen window.
 
-    eps_window = df["eps"].drop_duplicates().sort_values(ascending=False).iloc[window.start : window.stop].to_list()
+    Args:
+        df: DataFrame with individual box counts.
+        window: The selected LinearWindow.
+
+    Returns:
+        DataFrame with fractal dimensions for each grid realization.
+    """
+
+    eps_window = (
+        df["eps"]
+        .drop_duplicates()
+        .sort_values(ascending=False)
+        .iloc[window.start : window.stop]
+        .to_list()
+    )
     window_df = df[df["eps"].isin(eps_window)].copy()
     results = []
     for grid_id, group in window_df.groupby("grid_id"):
@@ -174,13 +264,30 @@ def sensitivity_analysis(
     return pd.DataFrame(results)
 
 
-def summarize_sensitivity(results: pd.DataFrame, n_bootstrap: int = 1000) -> pd.DataFrame:
-    """Summarise sensitivity of D across grid realisations with bootstrap CI."""
+def summarize_sensitivity(
+    results: pd.DataFrame, n_bootstrap: int = 1000
+) -> pd.DataFrame:
+    """Summarise sensitivity of D across grid realisations with bootstrap CI.
+
+    Args:
+        results: DataFrame from sensitivity_analysis.
+        n_bootstrap: Number of bootstrap samples for CI.
+
+    Returns:
+        Summary DataFrame with mean D, std, and bootstrap CI per grid type.
+
+    Raises:
+        ValueError: If sensitivity results are empty.
+    """
 
     if results.empty:
         raise ValueError("Sensitivity results are empty")
 
-    grouped = results.groupby(["rotation", "offset_x", "offset_y"]) ["D"].apply(list).reset_index()
+    grouped = (
+        results.groupby(["rotation", "offset_x", "offset_y"])["D"]
+        .apply(list)
+        .reset_index()
+    )
     summary_rows = []
     rng = np.random.default_rng(12345)
     for _, row in grouped.iterrows():
@@ -202,14 +309,3 @@ def summarize_sensitivity(results: pd.DataFrame, n_bootstrap: int = 1000) -> pd.
             }
         )
     return pd.DataFrame(summary_rows)
-
-
-__all__ = [
-    "grid_count_vector",
-    "boxcount_series",
-    "aggregate_counts",
-    "choose_linear_window",
-    "fit_and_ci",
-    "sensitivity_analysis",
-    "summarize_sensitivity",
-]

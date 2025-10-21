@@ -12,7 +12,7 @@ from .boxcount import (
     sensitivity_analysis,
     summarize_sensitivity,
 )
-from .plots import report_plots
+from .plots import report_plots, plot_geometry, plot_loglog
 from .validation import (
     generate_straight_line,
     generate_noise_curve,
@@ -35,6 +35,8 @@ __all__ = [
     "sensitivity_analysis",
     "summarize_sensitivity",
     "report_plots",
+    "plot_geometry",
+    "plot_loglog",
     "generate_straight_line",
     "generate_noise_curve",
     "simplification_study",
