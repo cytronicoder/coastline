@@ -17,17 +17,17 @@ __all__ = ["rasterize_to_binary"]
 def rasterize_to_binary(
     geometry: GeometryLike, resolution: Tuple[int, int] = (2048, 2048)
 ) -> np.ndarray:
-    """Rasterise a line geometry onto a binary canvas.
+    """Rasterize geometry to binary array.
 
     Args:
-        geometry: LineString or MultiLineString to rasterise.
-        resolution: Canvas resolution in pixels (width, height).
+        geometry: LineString or MultiLineString.
+        resolution: (width, height) pixels.
 
     Returns:
-        Binary image where pixels intersecting the geometry are 1.
+        Binary np.ndarray, 1 where intersects.
 
     Raises:
-        TypeError: If geometry is not LineString or MultiLineString.
+        TypeError: If not LineString/MultiLineString.
     """
 
     if not isinstance(geometry, (LineString, MultiLineString)):

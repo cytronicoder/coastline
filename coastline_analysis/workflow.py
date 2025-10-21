@@ -31,20 +31,19 @@ def run_workflow(
     simplification_tolerances: Sequence[float] | None = None,
     output_dir: Path | None = None,
 ) -> dict:
-    """Execute the end-to-end coastline fractal analysis workflow.
+    """Run end-to-end fractal analysis.
 
     Args:
-        coastline_path: Path to the coastline dataset.
-        eps_list: Sequence of scales for box counting.
-        offsets: Iterable of grid offset fractions.
-        rotations: Iterable of rotation angles in degrees.
-        simplification_tolerances: Optional tolerances for simplification study.
-        output_dir: Directory for output figures and tables.
+        coastline_path: Path to data.
+        eps_list: Scales ε.
+        offsets: (o_x, o_y).
+        rotations: Angles θ.
+        simplification_tolerances: Optional tolerances.
+        output_dir: Output dir.
 
     Returns:
-        Dictionary with workflow results including geometry, data, fits, and figures.
+        Dict with geometry, data, fits, figures, tables.
     """
-
     geometry = load_coastline(coastline_path)
     box_counts = boxcount_series(geometry, eps_list, offsets, rotations)
     aggregated = aggregate_counts(box_counts)

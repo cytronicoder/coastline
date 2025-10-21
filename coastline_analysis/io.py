@@ -16,17 +16,19 @@ __all__ = ["load_coastline"]
 
 
 def _to_lines(geometry) -> GeometryLike:
-    """Convert any polygonal geometry into its boundary lines.
+    """Extract boundary lines from geometry for box-counting.
+
+    For fractal dimension estimation, we need 1D boundaries. Polygons are converted to their exterior rings.
 
     Args:
-        geometry: The input geometry to convert.
+        geometry: Input geometry (polygon, etc.).
 
     Returns:
-        The boundary lines as LineString or MultiLineString.
+        Boundary as LineString or MultiLineString.
 
     Raises:
-        ValueError: If no line geometry can be extracted.
-        TypeError: If the geometry type is unsupported.
+        ValueError: If no line geometry extracted.
+        TypeError: If unsupported type.
     """
     if isinstance(geometry, (LineString, MultiLineString)):
         return geometry
@@ -45,16 +47,18 @@ def _to_lines(geometry) -> GeometryLike:
 
 
 def load_coastline(filepath: Union[str, Path]) -> GeometryLike:
-    """Load a coastline from a GeoJSON or vector dataset.
+    """Load and merge coastline geometries from vector file.
+
+    Reads GeoPandas-compatible file, unions geometries, extracts boundaries for box-counting.
 
     Args:
-        filepath: Path to the GeoJSON file. Any format readable by GeoPandas works.
+        filepath: Path to vector file (e.g., GeoJSON).
 
     Returns:
-        The merged coastline geometry in the dataset's CRS as LineString or MultiLineString.
+        Merged boundary lines as LineString or MultiLineString.
 
     Raises:
-        ValueError: If the provided file contains no geometries.
+        ValueError: If no geometries in file.
     """
 
     gdf = gpd.read_file(filepath)
