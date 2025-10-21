@@ -2,7 +2,7 @@ r"""Validation example: straight line D=1, noise curve D≈1.5."""
 
 from pathlib import Path
 
-from coastline_analysis import (
+from bytheseashore import (
     aggregate_counts,
     boxcount_series,
     generate_noise_curve,
