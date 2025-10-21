@@ -1,4 +1,10 @@
-"""Grid generation utilities for box counting."""
+r"""Grid generation utilities for box counting.
+
+The functions here translate mathematical definitions of box-counting lattices
+into concrete Shapely geometries. Each grid is fully described by its spacing,
+rotation, and offset so that higher-level routines can reproduce the exact box
+placements used during analysis.
+"""
 
 from __future__ import annotations
 
@@ -18,15 +24,20 @@ __all__ = ["GridSpec", "make_grids", "count_boxes_vector"]
 
 @dataclass(frozen=True)
 class GridSpec:
-    """Specification for a square grid used in box counting.
+    r"""Specification for a square grid used in box counting.
 
-    Attributes:
-        eps: Size of each grid cell.
-        rotation: Rotation angle of the grid in degrees.
-        offset: Tuple of (x_offset, y_offset) as fractions of eps.
-        origin: Tuple of (minx, miny) coordinates of the grid origin.
-        shape: Tuple of (num_cells_x, num_cells_y) defining grid dimensions.
-        bounds: Tuple of (minx, miny, maxx, maxy) defining the grid extent.
+    Attributes mirror the mathematical parameters used in the derivations:
+
+    * ``eps``: Box edge length \(\varepsilon\).
+    * ``rotation``: Grid rotation angle in degrees. Rotations are applied about
+      the geometry centroid before counting to mimic arbitrary lattice
+      alignments.
+    * ``offset``: Fractional offsets \((o_x, o_y)\) in units of ``eps``. When the
+      grid is unrotated this corresponds to translating the lattice by
+      \(o_x\varepsilon\) horizontally and \(o_y\varepsilon\) vertically.
+    * ``origin``: Coordinates of the southwest corner after applying offsets.
+    * ``shape``: Number of cells \((n_x, n_y)\) required to cover the bounds.
+    * ``bounds``: The unrotated extent \((\min x, \min y, \max x, \max y)\).
     """
 
     eps: float
@@ -37,10 +48,12 @@ class GridSpec:
     bounds: Tuple[float, float, float, float]
 
     def cells(self):
-        """Yield shapely boxes for each cell in the grid.
+        r"""Yield shapely boxes for each cell in the grid.
 
-        Yields:
-            Shapely box geometries for each grid cell.
+        This generator expresses the lattice \(\{x_0 + i\varepsilon\} \times
+        \{y_0 + j\varepsilon\}\) as individual axis-aligned boxes prior to any
+        rotation. The caller is responsible for applying geometric transformations
+        if a rotated frame is required.
         """
         minx, miny = self.origin
         nx, ny = self.shape
@@ -55,16 +68,23 @@ class GridSpec:
 def _grid_origin(
     min_coord: float, max_coord: float, eps: float, offset: float
 ) -> Tuple[float, int]:
-    """Calculate the grid origin and number of cells along one axis.
+    r"""Calculate the grid origin and number of cells along one axis.
+
+    The origin is obtained by sliding the lattice by ``offset * eps`` and then
+    snapping to the nearest multiple of ``eps`` not exceeding ``min_coord``. This
+    ensures coverage regardless of floating-point round-off and mirrors the
+    theoretical expression \(x_0 = \lfloor (\min x - o_x\varepsilon)/\varepsilon
+    \rfloor \varepsilon + o_x\varepsilon\).
 
     Args:
         min_coord: Minimum coordinate of the extent.
         max_coord: Maximum coordinate of the extent.
         eps: Grid cell size.
-        offset: Offset fraction of eps.
+        offset: Offset fraction of ``eps``.
 
     Returns:
-        A tuple of (origin coordinate, number of cells).
+        A tuple ``(origin, count)`` where ``count`` equals the number of steps of
+        length ``eps`` necessary to reach ``max_coord``.
     """
     start = floor((min_coord - offset * eps) / eps) * eps + offset * eps
     count = int(np.ceil((max_coord - start) / eps)) + 1
@@ -77,16 +97,22 @@ def make_grids(
     offsets: Iterable[Tuple[float, float]],
     rotations: Iterable[float],
 ) -> List[GridSpec]:
-    """Create grid specifications covering an extent for all offsets/rotations.
+    r"""Create grid specifications covering an extent for all offsets/rotations.
+
+    The grids are generated without applying the rotation to the boxes because
+    Shapely handles rotation on the geometry instead. The resulting
+    :class:`GridSpec` instances therefore describe the unrotated lattice that
+    would coincide with the rotated geometry. This separation keeps intersection
+    tests efficient by allowing reuse of prepared geometries.
 
     Args:
-        extent: Bounding box (minx, miny, maxx, maxy).
-        eps: Grid cell size.
-        offsets: Iterable of (x, y) offset fractions.
+        extent: Bounding box (``minx, miny, maxx, maxy``).
+        eps: Grid cell size \(\varepsilon\).
+        offsets: Iterable of offset fractions.
         rotations: Iterable of rotation angles in degrees.
 
     Returns:
-        List of GridSpec objects for each combination.
+        List of :class:`GridSpec` objects for each offset/rotation combination.
     """
 
     minx, miny, maxx, maxy = extent
@@ -109,14 +135,18 @@ def make_grids(
 
 
 def count_boxes_vector(geometry: BaseGeometry, grid: GridSpec) -> int:
-    """Count the number of grid cells intersected by a geometry.
+    r"""Count the number of grid cells intersected by a geometry.
+
+    The count \(N(\varepsilon, \theta, o_x, o_y)\) equals the cardinality of the
+    set of cells whose interiors intersect the geometry. Prepared geometries are
+    used to accelerate repeated ``intersects`` queries across many cells.
 
     Args:
-        geometry: The geometry to check intersections with.
-        grid: The GridSpec defining the grid.
+        geometry: The (possibly rotated) geometry to check intersections with.
+        grid: The :class:`GridSpec` defining the lattice.
 
     Returns:
-        The count of intersected cells.
+        Integer number of intersected cells.
     """
 
     prepared = prep(geometry)
