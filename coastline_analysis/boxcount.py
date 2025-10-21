@@ -1,4 +1,10 @@
-"""Vector-based box-counting implementations."""
+r"""Vector-based box-counting implementations.
+
+The routines in this module implement the discrete box-counting algorithm for
+planar geometries. They follow the methodology described in the accompanying
+documentation and expose intermediate values such as log-transformed counts,
+linear regression residuals, and bootstrap sensitivities.
+"""
 
 from __future__ import annotations
 
@@ -29,15 +35,22 @@ __all__ = [
 
 @dataclass
 class LinearWindow:
-    """Represents a linear window in the log-log box count data.
+    r"""Represent a linear window in the log–log box-count data.
+
+    The discrete scales \(\varepsilon_i\) are sorted from coarse to fine. A
+    window selects a contiguous subset `start <= i < stop` over which
+    \(\log N(\varepsilon_i)\) is well approximated by a line in
+    \(\log(1/\varepsilon_i)\). The slope and intercept correspond to the
+    parameters of the least-squares fit \(y = D x + b\) and the coefficient of
+    determination ``r2`` quantifies goodness of fit.
 
     Attributes:
-        start: Index of the first scale in the window.
-        stop: Index of the last scale in the window.
-        r2: R2 statistic for the linear fit.
-        slope: Slope of the linear fit.
-        intercept: Intercept of the linear fit.
-        residuals: Residuals from the linear fit.
+        start: Index of the first scale in the window (inclusive).
+        stop: Index of the last scale (exclusive).
+        r2: Coefficient of determination \(R^2\) for the linear fit.
+        slope: Estimated fractal dimension \(D\).
+        intercept: Estimated intercept \(b\) in the log–log model.
+        residuals: Residual vector \(r_i = y_i - (Dx_i + b)\).
     """
 
     start: int
@@ -54,16 +67,25 @@ def grid_count_vector(
     offsets: Iterable[Tuple[float, float]],
     rotations: Iterable[float],
 ) -> List[Dict[str, object]]:
-    """Count intersected boxes for a geometry at a single scale.
+    r"""Count intersected boxes for a geometry at a single scale.
+
+    Each grid realisation is defined by a rotation ``theta`` and offset
+    fractions ``(o_x, o_y)``. The grid is rotated about the geometry centroid and
+    translated so that a lattice of spacing ``eps`` covers the geometry bounds.
+    The number of intersected boxes \(N(\varepsilon, \theta, o_x, o_y)\) is
+    recorded for every combination, producing the raw counts used by subsequent
+    aggregation.
 
     Args:
-        geometry: The input geometry to analyze.
-        eps: The scale (box size) for counting.
-        offsets: Iterable of (x, y) offset fractions for grid positioning.
+        geometry: Input coastline geometry.
+        eps: Grid spacing \(\varepsilon\).
+        offsets: Iterable of offset fractions \((o_x, o_y)\) with
+            \(0 \le o_x, o_y < 1\).
         rotations: Iterable of rotation angles in degrees.
 
     Returns:
-        A list of dictionaries with box count records for each grid realization.
+        A list of dictionaries with one record per grid realisation containing
+        the rotation, offsets, and integer count ``N``.
     """
 
     records: List[Dict[str, object]] = []
@@ -93,16 +115,26 @@ def boxcount_series(
     offsets: Iterable[Tuple[float, float]],
     rotations: Iterable[float],
 ) -> pd.DataFrame:
-    """Compute box counts for a set of scales.
+    r"""Compute box counts for a set of scales.
+
+    For every \(\varepsilon \in \texttt{eps_list}\) the function calls
+    :func:`grid_count_vector` and stores the resulting counts in a tidy
+    :class:`pandas.DataFrame`. Two logarithmic helper columns are added:
+
+    * ``log_inv_eps`` = \(\log(1/\varepsilon)\), i.e., the abscissa for the
+      regression.
+    * ``log_N`` = \(\log N\) with ``N`` clipped below by 1 to avoid taking the
+      logarithm of zero when coarse grids miss the geometry entirely.
 
     Args:
-        geometry: The input geometry to analyze.
-        eps_list: Sequence of scales (box sizes) to compute counts for.
-        offsets: Iterable of (x, y) offset fractions for grid positioning.
+        geometry: Input coastline geometry.
+        eps_list: Sequence of box sizes (from coarse to fine).
+        offsets: Iterable of offset fractions.
         rotations: Iterable of rotation angles in degrees.
 
     Returns:
-        A DataFrame with box counts, including log-transformed columns.
+        DataFrame with one row per grid realisation and scale containing the raw
+        count and the log-transformed auxiliaries.
     """
 
     records: List[Dict[str, object]] = []
@@ -115,13 +147,25 @@ def boxcount_series(
 
 
 def aggregate_counts(df: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate box counts across grid realisations for each scale.
+    r"""Aggregate box counts across grid realisations for each scale.
+
+    The aggregation step computes summary statistics required by the regression:
+
+    * ``mean_N`` is the sample mean \(\bar{N}(\varepsilon)\) across rotations
+      and offsets.
+    * ``std_N`` stores the sample standard deviation to diagnose grid
+      sensitivity before bootstrapping.
+    * ``log_mean_N`` evaluates \(\log \bar{N}(\varepsilon)\) after clipping the
+      mean at 1. This keeps the log–log points finite without discarding data
+      where only one cell intersects the geometry.
 
     Args:
-        df: DataFrame with individual box count records.
+        df: DataFrame with individual box-count records as produced by
+            :func:`boxcount_series`.
 
     Returns:
-        Aggregated DataFrame with mean and std counts per scale.
+        Aggregated DataFrame with one row per \(\varepsilon\) sorted from coarse
+        to fine scales.
     """
 
     grouped = (
@@ -141,17 +185,25 @@ def aggregate_counts(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def choose_linear_window(df: pd.DataFrame, min_levels: int = 4) -> LinearWindow:
-    """Select the most linear contiguous region in the log-log curve.
+    r"""Select the most linear contiguous region in the log–log curve.
+
+    Each candidate window ``[start, stop)`` is evaluated by fitting
+    \(y = D x + b\) on the subset of ``log_inv_eps`` (``x``) and ``log_mean_N``
+    (``y``). The window with maximum \(R^2\) that also satisfies the residual
+    outlier test ``max|r_i| <= 2.5 * sigma_r`` is returned. This mirrors common
+    practice in fractal dimension estimation where curvature at extreme scales is
+    trimmed before fitting (Falconer, 2014).
 
     Args:
-        df: Aggregated DataFrame with log-transformed counts.
-        min_levels: Minimum number of scales for a window.
+        df: Aggregated DataFrame containing log-transformed columns.
+        min_levels: Minimum number of scales \(m\) allowed in a window. Values
+            below 4 tend to overfit and are therefore disallowed by default.
 
     Returns:
-        The best LinearWindow with highest R2.
+        The :class:`LinearWindow` with highest \(R^2\) among admissible windows.
 
     Raises:
-        ValueError: If not enough scales to form a linear window.
+        ValueError: If the dataset has fewer than ``min_levels`` scales.
     """
 
     best = LinearWindow(
@@ -188,13 +240,23 @@ def choose_linear_window(df: pd.DataFrame, min_levels: int = 4) -> LinearWindow:
 
 
 def fit_and_ci(df_band: pd.DataFrame) -> Dict[str, float]:
-    """Fit the log-log relationship and compute statistics.
+    r"""Fit the log–log relationship and compute inferential statistics.
+
+    Given a window of \(n\) points, the function solves the OLS system
+    ``A @ [slope, intercept] = y`` with
+    ``A = [[x_i, 1] for x_i in log_inv_eps]``. Residuals \(r_i\) are used to
+    compute the sum of squared residuals \(\mathrm{SSR}\) and the coefficient of
+    determination \(R^2\). The variance estimate ``sigma2`` equals
+    \(\mathrm{SSR} / (n-2)\) and yields the standard error of the slope, from
+    which a 95 % confidence interval is derived via the Student
+    \(t_{0.975,\,n-2}\) quantile.
 
     Args:
-        df_band: DataFrame subset for the linear window.
+        df_band: DataFrame subset corresponding to the selected linear window.
 
     Returns:
-        Dictionary with fit parameters, R2, confidence intervals, and residuals.
+        Dictionary containing the slope (``D``), intercept, ``R2``, lower and
+        upper confidence limits, and the residual vector.
     """
 
     x = df_band["log_inv_eps"].to_numpy()
@@ -227,14 +289,22 @@ def sensitivity_analysis(
     df: pd.DataFrame,
     window: LinearWindow,
 ) -> pd.DataFrame:
-    """Compute fractal dimension per grid realisation within the chosen window.
+    r"""Compute fractal dimension per grid realisation within the chosen window.
+
+    The regression is repeated for every ``grid_id`` using only the scales in the
+    ``window``. This yields slopes \(D_j\) quantifying how grid orientation and
+    placement influence the estimated dimension. These slopes underpin the
+    bootstrap sensitivity summary and correspond directly to the data visualised
+    in Figure 4 of the workflow report.
 
     Args:
-        df: DataFrame with individual box counts.
-        window: The selected LinearWindow.
+        df: DataFrame with individual box counts (output of
+            :func:`boxcount_series`).
+        window: The selected :class:`LinearWindow` describing the admissible
+            scales.
 
     Returns:
-        DataFrame with fractal dimensions for each grid realization.
+        DataFrame with one row per grid realisation and the associated slope.
     """
 
     eps_window = (
@@ -267,17 +337,24 @@ def sensitivity_analysis(
 def summarize_sensitivity(
     results: pd.DataFrame, n_bootstrap: int = 1000
 ) -> pd.DataFrame:
-    """Summarise sensitivity of D across grid realisations with bootstrap CI.
+    r"""Summarise sensitivity of ``D`` across grid realisations via bootstrapping.
+
+    Within each group of common rotation and offsets the slopes ``D`` are sampled
+    with replacement ``n_bootstrap`` times. The bootstrap distribution of the
+    mean approximates the sampling distribution of \(\bar{D}\) and its 2.5th and
+    97.5th percentiles form a non-parametric 95 % confidence interval. This is a
+    direct implementation of Efron's bootstrap applied to the per-grid slopes.
 
     Args:
-        results: DataFrame from sensitivity_analysis.
-        n_bootstrap: Number of bootstrap samples for CI.
+        results: DataFrame returned by :func:`sensitivity_analysis`.
+        n_bootstrap: Number of bootstrap replicates ``B``.
 
     Returns:
-        Summary DataFrame with mean D, std, and bootstrap CI per grid type.
+        Summary DataFrame with the mean slope, standard deviation, and bootstrap
+        confidence limits for each (rotation, offset) combination.
 
     Raises:
-        ValueError: If sensitivity results are empty.
+        ValueError: If ``results`` is empty.
     """
 
     if results.empty:

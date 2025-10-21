@@ -1,4 +1,10 @@
-"""Validation helpers for the coastline fractal workflow."""
+r"""Validation helpers for the coastline fractal workflow.
+
+The routines in this module generate synthetic geometries with known fractal
+properties and run the full analysis pipeline. They provide numerical checks
+against theoretical expectations described in Mandelbrot (1967) and Falconer
+(2014).
+"""
 
 from __future__ import annotations
 
@@ -29,14 +35,18 @@ __all__ = [
 
 
 def generate_straight_line(length: float = 1000.0, segments: int = 2) -> LineString:
-    """Create a straight line geometry for sanity checks.
+    r"""Create a straight line geometry for sanity checks.
+
+    The resulting polyline has theoretical box-counting dimension \(D = 1\).
+    Regardless of ``segments`` the geometry lies on the ``x``-axis and therefore
+    should produce perfectly linear log–log counts up to numerical precision.
 
     Args:
         length: Total length of the line.
         segments: Number of segments (resolution).
 
     Returns:
-        A straight LineString geometry.
+        A straight :class:`shapely.geometry.LineString` geometry.
     """
 
     xs = np.linspace(0, length, segments + 1)
@@ -47,7 +57,12 @@ def generate_straight_line(length: float = 1000.0, segments: int = 2) -> LineStr
 def generate_noise_curve(
     length: float = 1000.0, segments: int = 1024, noise: float = 100.0
 ) -> LineString:
-    """Generate a fractal-like noisy coastline surrogate.
+    r"""Generate a fractal-like noisy coastline surrogate.
+
+    A Gaussian random walk is generated along the ``y`` direction and scaled to
+    the provided ``noise`` amplitude. Such curves resemble fractional Brownian
+    motion with Hurst exponent \(H \approx 0.5\), giving an expected box-counting
+    dimension \(D = 2 - H \approx 1.5\).
 
     Args:
         length: Total length of the curve.
@@ -55,7 +70,7 @@ def generate_noise_curve(
         noise: Amplitude of the noise.
 
     Returns:
-        A noisy LineString geometry.
+        A noisy :class:`shapely.geometry.LineString` geometry.
     """
 
     xs = np.linspace(0, length, segments)
@@ -71,7 +86,13 @@ def run_sanity_checks(
     offsets: Iterable[tuple[float, float]],
     rotations: Iterable[float],
 ) -> pd.DataFrame:
-    """Run the primary workflow on a geometry and return summary stats.
+    r"""Run the primary workflow on a geometry and return summary stats.
+
+    The function executes the workflow components in order: raw box counts,
+    aggregation, linear-window selection, parametric fit, and grid sensitivity.
+    The output summarises both the global slope \(D\) and bootstrap sensitivity
+    measures so that empirical results can be compared against theoretical
+    expectations (e.g., \(D = 1\) for straight lines).
 
     Args:
         geometry: The geometry to analyze.
@@ -103,7 +124,13 @@ def simplification_study(
     offsets: Iterable[tuple[float, float]],
     rotations: Iterable[float],
 ) -> pd.DataFrame:
-    """Assess how Douglas–Peucker simplification affects fractal estimates.
+    r"""Assess how Douglas–Peucker simplification affects fractal estimates.
+
+    Simplification removes vertices whose orthogonal distance to the original
+    curve is smaller than ``tolerance``. Because box counts at scales below
+    ``tolerance`` decrease, the observed slope \(D\) typically drops toward the
+    Euclidean value 1. This helper quantifies that trend across a range of
+    tolerances.
 
     Args:
         geometry: The original geometry.
