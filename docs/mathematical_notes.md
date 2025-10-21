@@ -17,7 +17,7 @@ This document summarizes the mathematical foundations implemented in the `coastl
 
 ## 2. Fractal dimension estimation
 
-- **Box-counting dimension.** The theoretical fractal (Hausdorff) dimension is approximated by the slope of the line in the log–log space:
+- **Box-counting dimension.** The theoretical fractal (Hausdorff) dimension is approximated by the slope of the line in the log-log space:
   $$
   D \approx -\lim\_{\varepsilon \to 0} \frac{\log N(\varepsilon)}{\log \varepsilon}.
   $$
@@ -31,7 +31,7 @@ This document summarizes the mathematical foundations implemented in the `coastl
 
 ### 2.1 Linear window selection
 
-- **Objective.** Identify contiguous scales where the log–log relation is most linear while satisfying a minimum window size $m$.
+- **Objective.** Identify contiguous scales where the log-log relation is most linear while satisfying a minimum window size $m$.
 - **Search strategy.** Every candidate window $[s, t)$ with $t - s \ge m$ is fit via OLS. The selected window maximizes $R^2$ subject to a residual outlier rejection step: residual standard deviation $\sigma_r$ is computed and windows with $\max |r_i| > 2.5\sigma_r$ are discarded.
 - **Edge cases.** If the dataset contains fewer than $m$ scales a `ValueError` is raised. Residual variance of zero causes $R^2 = 0$ to avoid division by zero, reflecting flat data.
 
@@ -47,7 +47,7 @@ This document summarizes the mathematical foundations implemented in the `coastl
 
 ## 3. Sensitivity analysis
 
-- **Per-grid slopes.** For each combination of rotation and offset, the slope of the log–log counts is recomputed within the chosen linear window.
+- **Per-grid slopes.** For each combination of rotation and offset, the slope of the log-log counts is recomputed within the chosen linear window.
 - **Bootstrap confidence bands.** Let $D_j$ be the slope for grid realisation $j$ within a cell of constant rotation/offset. The bootstrap procedure draws $B$ resamples with replacement and records the mean. The 2.5th and 97.5th percentiles provide a non-parametric confidence interval on the mean $\mathbb{E}[D_j]$, addressing grid-to-grid sensitivity.
 - **Random seed.** The generator is seeded (`rng = np.random.default_rng(12345)`) to make reported bootstrap intervals reproducible.
 
@@ -58,7 +58,7 @@ This document summarizes the mathematical foundations implemented in the `coastl
 
 ## 5. Practical considerations
 
-- **Scale selection.** Too narrow or wide a scale range can bias the slope. The automated window search is still sensitive to resolution choices; users should inspect the log–log plot for curvature.
+- **Scale selection.** Too narrow or wide a scale range can bias the slope. The automated window search is still sensitive to resolution choices; users should inspect the log-log plot for curvature.
 - **Rotations and offsets.** Rotating the grid mitigates alignment artefacts. For anisotropic coastlines, include multiple angles (e.g., every 15°).
 - **Handling zeros.** If a scale yields no intersected boxes, the count is clipped to 1 before taking logs. This corresponds to assuming a minimum single box coverage rather than discarding the scale; users may prefer to omit such scales entirely.
-- **Geometric simplification.** Douglas–Peucker smoothing changes small-scale structure and therefore the estimated $D$. The `simplification_study` routine quantifies this effect across tolerances.
+- **Geometric simplification.** Douglas-Peucker smoothing changes small-scale structure and therefore the estimated $D$. The `simplification_study` routine quantifies this effect across tolerances.
