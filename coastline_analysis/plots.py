@@ -14,7 +14,18 @@ from shapely.ops import unary_union
 GeometryLike = LineString | MultiLineString
 
 
+__all__ = ["report_plots", "plot_geometry", "plot_loglog"]
+
+
 def _ensure_output_dir(path: Path | None) -> Path:
+    """Ensure the output directory exists and return it.
+
+    Args:
+        path: The directory path, or None for current working directory.
+
+    Returns:
+        The ensured directory path.
+    """
     if path is None:
         return Path.cwd()
     path.mkdir(parents=True, exist_ok=True)
@@ -30,7 +41,20 @@ def report_plots(
     sensitivity: pd.DataFrame,
     output_dir: Path | None = None,
 ) -> Dict[str, Path]:
-    """Create the report figures described in the workflow."""
+    """Create the report figures described in the workflow.
+
+    Args:
+        geometry: The coastline geometry.
+        aggregated: Aggregated box count data.
+        fit_stats: Fit statistics from linear regression.
+        window_indices: Start and end indices of the linear window.
+        residuals: Residuals from the fit.
+        sensitivity: Sensitivity analysis results.
+        output_dir: Directory to save figures, defaults to cwd.
+
+    Returns:
+        Dictionary mapping figure names to saved file paths.
+    """
 
     output_path = _ensure_output_dir(output_dir)
     figures = {}
@@ -54,7 +78,9 @@ def report_plots(
     plt.close(fig1)
 
     # Figure 2: log-log plot with fit and residuals inset
-    fig2, (ax2, ax2_resid) = plt.subplots(2, 1, figsize=(6, 8), sharex=True, gridspec_kw={"height_ratios": [3, 1]})
+    fig2, (ax2, ax2_resid) = plt.subplots(
+        2, 1, figsize=(6, 8), sharex=True, gridspec_kw={"height_ratios": [3, 1]}
+    )
     ax2.errorbar(
         aggregated["log_inv_eps"],
         aggregated["log_mean_N"],
@@ -63,7 +89,9 @@ def report_plots(
         color="black",
         label="Mean log N",
     )
-    x_band = aggregated.iloc[window_indices[0] : window_indices[1] + 1]["log_inv_eps"].to_numpy()
+    x_band = aggregated.iloc[window_indices[0] : window_indices[1] + 1][
+        "log_inv_eps"
+    ].to_numpy()
     y_fit = fit_stats["D"] * x_band + fit_stats["intercept"]
     ax2.plot(x_band, y_fit, color="crimson", label=f"Fit D={fit_stats['D']:.3f}")
     ax2.fill_between(
@@ -116,4 +144,55 @@ def report_plots(
     return figures
 
 
-__all__ = ["report_plots"]
+def plot_geometry(geometry: GeometryLike, title: str = "Geometry", save_path: Path | None = None):
+    """Plot a geometry for visualization.
+
+    Args:
+        geometry: The geometry to plot.
+        title: Title for the plot.
+        save_path: Optional path to save the figure.
+    """
+    fig, ax = plt.subplots(figsize=(6, 6))
+    geom = unary_union(geometry) if isinstance(geometry, (list, tuple)) else geometry
+    if isinstance(geom, LineString):
+        xs, ys = geom.xy
+        ax.plot(xs, ys, color="steelblue", linewidth=1.5)
+    else:
+        for line in geom.geoms:
+            xs, ys = line.xy
+            ax.plot(xs, ys, color="steelblue", linewidth=1.0)
+    ax.set_title(title)
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    if save_path:
+        fig.savefig(save_path, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+    else:
+        plt.show()
+
+
+def plot_loglog(aggregated: pd.DataFrame, title: str = "Log-Log Plot", save_path: Path | None = None):
+    """Plot the log-log relationship for box counting.
+
+    Args:
+        aggregated: Aggregated box count data.
+        title: Title for the plot.
+        save_path: Optional path to save the figure.
+    """
+    fig, ax = plt.subplots(figsize=(6, 6))
+    ax.scatter(
+        aggregated["log_inv_eps"],
+        aggregated["log_mean_N"],
+        color="black",
+        label="Data points",
+    )
+    ax.set_xlabel("log(1/ε)")
+    ax.set_ylabel("log N(ε)")
+    ax.set_title(title)
+    ax.grid(True)
+    if save_path:
+        fig.savefig(save_path, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+    else:
+        plt.show()

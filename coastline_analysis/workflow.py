@@ -17,7 +17,10 @@ from .boxcount import (
 )
 from .io import load_coastline
 from .plots import report_plots
-from .validation import run_sanity_checks, simplification_study
+from .validation import simplification_study
+
+
+__all__ = ["run_workflow"]
 
 
 def run_workflow(
@@ -28,7 +31,19 @@ def run_workflow(
     simplification_tolerances: Sequence[float] | None = None,
     output_dir: Path | None = None,
 ) -> dict:
-    """Execute the end-to-end coastline fractal analysis workflow."""
+    """Execute the end-to-end coastline fractal analysis workflow.
+
+    Args:
+        coastline_path: Path to the coastline dataset.
+        eps_list: Sequence of scales for box counting.
+        offsets: Iterable of grid offset fractions.
+        rotations: Iterable of rotation angles in degrees.
+        simplification_tolerances: Optional tolerances for simplification study.
+        output_dir: Directory for output figures and tables.
+
+    Returns:
+        Dictionary with workflow results including geometry, data, fits, and figures.
+    """
 
     geometry = load_coastline(coastline_path)
     box_counts = boxcount_series(geometry, eps_list, offsets, rotations)
@@ -63,7 +78,9 @@ def run_workflow(
 
     table2 = None
     if simplification_tolerances:
-        table2 = simplification_study(geometry, simplification_tolerances, eps_list, offsets, rotations)
+        table2 = simplification_study(
+            geometry, simplification_tolerances, eps_list, offsets, rotations
+        )
 
     return {
         "geometry": geometry,
@@ -76,6 +93,3 @@ def run_workflow(
         "table1": table1,
         "table2": table2,
     }
-
-
-__all__ = ["run_workflow"]

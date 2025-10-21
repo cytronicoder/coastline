@@ -11,20 +11,23 @@ from shapely.ops import transform
 GeometryLike = LineString | MultiLineString
 
 
-def rasterize_to_binary(geometry: GeometryLike, resolution: Tuple[int, int] = (2048, 2048)) -> np.ndarray:
+__all__ = ["rasterize_to_binary"]
+
+
+def rasterize_to_binary(
+    geometry: GeometryLike, resolution: Tuple[int, int] = (2048, 2048)
+) -> np.ndarray:
     """Rasterise a line geometry onto a binary canvas.
 
-    Parameters
-    ----------
-    geometry:
-        LineString or MultiLineString to rasterise.
-    resolution:
-        Canvas resolution in pixels (width, height).
+    Args:
+        geometry: LineString or MultiLineString to rasterise.
+        resolution: Canvas resolution in pixels (width, height).
 
-    Returns
-    -------
-    numpy.ndarray
+    Returns:
         Binary image where pixels intersecting the geometry are 1.
+
+    Raises:
+        TypeError: If geometry is not LineString or MultiLineString.
     """
 
     if not isinstance(geometry, (LineString, MultiLineString)):
@@ -50,7 +53,10 @@ def rasterize_to_binary(geometry: GeometryLike, resolution: Tuple[int, int] = (2
                 continue
             xs = np.linspace(x0, x1, int(num) + 1)
             ys = np.linspace(y0, y1, int(num) + 1)
-            canvas[np.clip(np.round(ys).astype(int), 0, height - 1), np.clip(np.round(xs).astype(int), 0, width - 1)] = 1
+            canvas[
+                np.clip(np.round(ys).astype(int), 0, height - 1),
+                np.clip(np.round(xs).astype(int), 0, width - 1),
+            ] = 1
 
     if isinstance(normed, LineString):
         draw_line(np.array(normed.coords))
@@ -59,6 +65,3 @@ def rasterize_to_binary(geometry: GeometryLike, resolution: Tuple[int, int] = (2
             draw_line(np.array(line.coords))
 
     return canvas
-
-
-__all__ = ["rasterize_to_binary"]
