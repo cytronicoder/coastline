@@ -144,7 +144,9 @@ def report_plots(
     return figures
 
 
-def plot_geometry(geometry: GeometryLike, title: str = "Geometry", save_path: Path | None = None):
+def plot_geometry(
+    geometry: GeometryLike, title: str = "Geometry", save_path: Path | None = None
+):
     """Plot geometry.
 
     Args:
@@ -172,7 +174,9 @@ def plot_geometry(geometry: GeometryLike, title: str = "Geometry", save_path: Pa
         plt.show()
 
 
-def plot_loglog(aggregated: pd.DataFrame, title: str = "Log-Log Plot", save_path: Path | None = None):
+def plot_loglog(
+    aggregated: pd.DataFrame, title: str = "Log-Log Plot", save_path: Path | None = None
+):
     """Plot log-log: log(1/ε) vs log N(ε).
 
     Args:
