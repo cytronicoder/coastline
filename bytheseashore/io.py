@@ -102,9 +102,7 @@ def load_coastline(filepath: Union[str, Path]) -> GeometryLike:
     return _to_lines(geometry)
 
 
-def clip_coastline(
-    coastline: GeometryLike, region: BaseGeometry
-) -> GeometryLike:
+def clip_coastline(coastline: GeometryLike, region: BaseGeometry) -> GeometryLike:
     """Clip a coastline geometry to a region of interest.
 
     Args:
